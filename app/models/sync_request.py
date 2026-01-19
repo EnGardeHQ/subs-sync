@@ -26,7 +26,8 @@ class SyncResponse(BaseModel):
     """Response from template sync operation"""
     user_id: str = Field(description="UUID of the user")
     sync_timestamp: datetime = Field(default_factory=datetime.utcnow, description="When sync occurred")
-    status: str = Field(description="Overall sync status: success, partial, failed")
+    status: str = Field(description="Overall sync status: success, partial, failed, skipped")
+    message: Optional[str] = Field(None, description="Optional message explaining the sync result")
 
     # Sync results
     new_flows_added: List[TemplateSyncResult] = Field(

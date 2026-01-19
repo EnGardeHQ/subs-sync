@@ -57,6 +57,28 @@ class TemplateSyncEngine:
                 f"tier={user_access.subscription_tier}, agents={user_access.enabled_walker_agents}"
             )
 
+            # Step 0: Verify user exists in Langflow database
+            langflow_user = await self.queries.get_user(user_id)
+            if not langflow_user:
+                error_msg = f"User {user_id} not found in Langflow database. User must log in via SSO first."
+                logger.warning(error_msg)
+                return SyncResponse(
+                    user_id=user_id,
+                    sync_timestamp=datetime.utcnow(),
+                    status="skipped",
+                    new_flows_added=[],
+                    flows_updated=[],
+                    flows_up_to_date=0,
+                    flows_denied=[],
+                    folders_created=[],
+                    total_templates_available=0,
+                    total_templates_accessible=0,
+                    total_templates_synced=0,
+                    subscription_tier=user_access.subscription_tier.value,
+                    enabled_walker_agents=[agent.value for agent in user_access.enabled_walker_agents],
+                    message=error_msg
+                )
+
             # Step 1: Ensure user has "En Garde" folder
             engarde_folder_id = await self.queries.get_or_create_folder(
                 user_id=user_id,
