@@ -59,14 +59,13 @@ class LangflowQueries:
 
             # Create folder
             folder_id = str(uuid4())
-            now = datetime.now(timezone.utc)
 
             await conn.execute(
                 """
-                INSERT INTO folder (id, name, user_id, parent_id, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO folder (id, name, user_id, parent_id)
+                VALUES ($1, $2, $3, $4)
                 """,
-                folder_id, folder_name, user_id, parent_id, now, now
+                folder_id, folder_name, user_id, parent_id
             )
 
             logger.info(f"Created folder '{folder_name}' for user {user_id}")
