@@ -124,6 +124,19 @@ class EnGardeQueries:
             Tenant ID or None
         """
         async with db.get_engarde_connection() as conn:
+            # Check if tenant_id column exists
+            column_exists = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'tenant_id'
+                )
+                """
+            )
+
+            if not column_exists:
+                return None
+
             row = await conn.fetchrow(
                 """
                 SELECT tenant_id FROM users WHERE id = $1
