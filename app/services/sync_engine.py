@@ -74,8 +74,8 @@ class TemplateSyncEngine:
                     total_templates_available=0,
                     total_templates_accessible=0,
                     total_templates_synced=0,
-                    subscription_tier=user_access.subscription_tier.value,
-                    enabled_walker_agents=[agent.value for agent in user_access.enabled_walker_agents],
+                    subscription_tier=user_access.subscription_tier,
+                    enabled_walker_agents=user_access.enabled_walker_agents,
                     message=error_msg
                 )
 
@@ -143,8 +143,8 @@ class TemplateSyncEngine:
                 total_templates_available=len(admin_templates),
                 total_templates_accessible=len(accessible_templates),
                 total_templates_synced=len(sync_results['new_flows']) + sync_results['up_to_date_count'],
-                subscription_tier=user_access.subscription_tier.value,
-                enabled_walker_agents=[agent.value for agent in user_access.enabled_walker_agents],
+                subscription_tier=user_access.subscription_tier,
+                enabled_walker_agents=user_access.enabled_walker_agents,
                 folders_created=folders_created
             )
 
@@ -191,11 +191,11 @@ class TemplateSyncEngine:
             if not self.access_control.can_access_tier(user_access.subscription_tier, required_tier):
                 return {
                     'has_access': False,
-                    'reason': f"Requires {required_tier.value} tier or higher (current: {user_access.subscription_tier.value})"
+                    'reason': f"Requires {required_tier.value} tier or higher (current: {user_access.subscription_tier})"
                 }
 
             # Check walker agent enablement
-            if walker_agent_type and walker_agent_type not in [agent.value for agent in user_access.enabled_walker_agents]:
+            if walker_agent_type and walker_agent_type not in user_access.enabled_walker_agents:
                 return {
                     'has_access': False,
                     'reason': f"Walker agent '{walker_agent_type}' not enabled for user"
@@ -319,8 +319,8 @@ class TemplateSyncEngine:
 
         return SyncStatusResponse(
             user_id=user_id,
-            subscription_tier=user_access.subscription_tier.value,
-            enabled_walker_agents=[agent.value for agent in user_access.enabled_walker_agents],
+            subscription_tier=user_access.subscription_tier,
+            enabled_walker_agents=user_access.enabled_walker_agents,
             last_sync_at=None,  # TODO: Track last sync timestamp
             total_flows=len(user_flows),
             template_flows_count=len(user_flows),  # TODO: Distinguish template vs custom flows
