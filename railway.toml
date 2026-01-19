@@ -1,0 +1,12 @@
+# Railway Configuration for EnGarde Subscription Sync Service
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+sleepApplication = true  # Sleep when idle to save costs (wakes on HTTP request)
+numReplicas = 1
