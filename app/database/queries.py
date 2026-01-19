@@ -35,7 +35,7 @@ class LangflowQueries:
         Returns:
             Folder UUID
         """
-        async with db.get_connection() as conn:
+        async with db.get_langflow_connection() as conn:
             # Check if folder exists
             if parent_id:
                 folder = await conn.fetchrow(
@@ -84,7 +84,7 @@ class LangflowQueries:
         Returns:
             List of admin templates with metadata
         """
-        async with db.get_connection() as conn:
+        async with db.get_langflow_connection() as conn:
             rows = await conn.fetch(
                 """
                 SELECT
@@ -179,7 +179,7 @@ class LangflowQueries:
         Returns:
             List of user's flows
         """
-        async with db.get_connection() as conn:
+        async with db.get_langflow_connection() as conn:
             rows = await conn.fetch(
                 """
                 SELECT id, name, folder_id, data, description, created_at, updated_at
@@ -209,7 +209,7 @@ class LangflowQueries:
         Returns:
             New flow UUID
         """
-        async with db.get_connection() as conn:
+        async with db.get_langflow_connection() as conn:
             new_flow_id = str(uuid4())
             now = datetime.now(timezone.utc)
 
@@ -273,7 +273,7 @@ class LangflowQueries:
         Returns:
             True if flow exists, False otherwise
         """
-        async with db.get_connection() as conn:
+        async with db.get_langflow_connection() as conn:
             row = await conn.fetchrow(
                 """
                 SELECT id FROM flow
@@ -299,7 +299,7 @@ class LangflowQueries:
         Returns:
             User dict or None if not found
         """
-        async with db.get_connection() as conn:
+        async with db.get_langflow_connection() as conn:
             row = await conn.fetchrow(
                 """
                 SELECT id, username, is_superuser, is_active, last_login_at

@@ -15,28 +15,42 @@ Microservice for synchronizing Langflow templates to users based on subscription
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Railway Project                       │
-│                                                          │
-│  ┌──────────────┐        ┌──────────────────────────┐  │
-│  │  Langflow    │        │  Subs Sync Service       │  │
-│  │  Service     │        │  (This microservice)     │  │
-│  └──────┬───────┘        └─────────┬────────────────┘  │
-│         │                           │                   │
-│         └────────┬──────────────────┘                   │
-│                  │                                       │
-│         ┌────────▼──────────┐                           │
-│         │  En-Garde-FlowDB  │                           │
-│         │    (PostgreSQL)    │                           │
-│         └────────┬──────────┘                           │
-│                  │                                       │
-│  ┌───────────────▼──────────────────┐                   │
-│  │   EnGarde Backend (Onside)       │                   │
-│  │  Provides: User subscription     │                   │
-│  │   tier and enabled walker agents │                   │
-│  └──────────────────────────────────┘                   │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      Railway Project                         │
+│                                                              │
+│  ┌──────────────┐        ┌──────────────────────────────┐  │
+│  │  Langflow    │        │  Subs Sync Service           │  │
+│  │  Service     │        │  (This microservice)         │  │
+│  └──────┬───────┘        └────┬─────────────────┬───────┘  │
+│         │                     │                 │           │
+│         │                     │                 │           │
+│         │                     ▼                 ▼           │
+│         │            ┌─────────────────┐ ┌─────────────┐   │
+│         └───────────►│ En-Garde-FlowDB │ │  Postgres   │   │
+│                      │   (Langflow DB)  │ │ (EnGarde DB)│   │
+│                      │                  │ │             │   │
+│                      │ • Admin templates│ │ • Users     │   │
+│                      │ • User flows     │ │ • Subs tiers│   │
+│                      │ • Folders        │ │ • Walker    │   │
+│                      │                  │ │   agents    │   │
+│                      └──────────────────┘ └─────────────┘   │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  EnGarde Backend (Onside)                          │    │
+│  │  • Manages user subscriptions in Postgres DB       │    │
+│  │  • Enables/disables walker agents per user         │    │
+│  │  • Calls subs_sync after SSO login                 │    │
+│  └────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### Direct Database Access Benefits
+
+✅ **No HTTP overhead**: 5-10ms faster than API calls
+✅ **Simpler**: No API endpoint needed in EnGarde backend
+✅ **More reliable**: No network calls that can fail
+✅ **Transactional**: Can wrap operations in single transaction
+✅ **Cost efficient**: Same database, no additional resources
 
 ## Admin Folder Structure
 
@@ -173,15 +187,14 @@ git push -u origin main
 
 2. **Configure Environment Variables:**
    ```bash
-   # Set database URL (same as Langflow)
-   railway variables set LANGFLOW_DATABASE_URL="<postgres-url>"
+   # Set Langflow database URL
+   railway variables set LANGFLOW_DATABASE_URL="${{En-Garde-FlowDB.DATABASE_URL}}"
 
-   # Set EnGarde backend API
-   railway variables set ENGARDE_API_URL="https://api.engarde.media"
-   railway variables set ENGARDE_API_KEY="<your-api-key>"
+   # Set EnGarde main database URL
+   railway variables set ENGARDE_DATABASE_URL="${{Postgres.DATABASE_URL}}"
 
    # Set service token (generate secure random token)
-   railway variables set SUBS_SYNC_SERVICE_TOKEN="<secure-random-token>"
+   railway variables set SUBS_SYNC_SERVICE_TOKEN="$(openssl rand -hex 32)"
 
    # Set environment
    railway variables set ENV="production"
@@ -215,30 +228,54 @@ const syncResponse = await fetch(
 );
 ```
 
-## EnGarde Backend API Contract
+## EnGarde Database Schema
 
-The sync service expects EnGarde backend to provide this endpoint:
+The sync service connects directly to the EnGarde PostgreSQL database and expects these tables:
 
-```http
-GET /api/users/{user_id}/access-control
-Authorization: Bearer <engarde-api-key>
+### users Table
+
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    subscription_tier VARCHAR(50) NOT NULL DEFAULT 'free',
+    -- Values: 'free', 'pro', 'enterprise', 'agency'
+    is_active BOOLEAN DEFAULT TRUE,
+    tenant_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
 
-**Response:**
-```json
-{
-  "user_id": "uuid",
-  "subscription_tier": "pro",
-  "enabled_walker_agents": ["seo", "content", "paid_ads"],
-  "tier_limits": {
-    "max_flows": 50,
-    "max_walker_agents": 3,
-    "max_campaigns": 10,
-    "api_rate_limit": 1000
-  },
-  "is_active": true,
-  "tenant_id": "tenant-uuid"
-}
+### user_walker_agents Table
+
+```sql
+CREATE TABLE user_walker_agents (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    walker_agent_type VARCHAR(50) NOT NULL,
+    -- Values: 'seo', 'content', 'paid_ads', 'audience_intelligence'
+    enabled BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, walker_agent_type)
+);
+
+CREATE INDEX idx_user_walker_agents_user_id ON user_walker_agents(user_id);
+CREATE INDEX idx_user_walker_agents_enabled ON user_walker_agents(enabled);
+```
+
+### Example Data
+
+```sql
+-- User with Pro tier and 2 walker agents enabled
+INSERT INTO users (id, email, subscription_tier) VALUES
+('123e4567-e89b-12d3-a456-426614174000', 'user@example.com', 'pro');
+
+INSERT INTO user_walker_agents (id, user_id, walker_agent_type, enabled) VALUES
+('223e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174000', 'seo', true),
+('323e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174000', 'content', true),
+('423e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174000', 'paid_ads', false);
 ```
 
 ## Cost Analysis
