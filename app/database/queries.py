@@ -222,9 +222,9 @@ class LangflowQueries:
                 """
                 INSERT INTO flow (
                     id, user_id, name, description, data, folder_id,
-                    created_at, updated_at
+                    updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 """,
                 new_flow_id,
                 user_id,
@@ -232,7 +232,6 @@ class LangflowQueries:
                 clean_description,
                 json.dumps(template['data']) if isinstance(template['data'], dict) else template['data'],
                 folder_id,
-                now,
                 now
             )
 
