@@ -293,24 +293,44 @@ class LangflowQueries:
     @staticmethod
     async def get_user(user_id: str) -> Optional[Dict]:
         """
-        Get user information.
+        Get user information from Langflow database by looking up via email.
+
+        Since Langflow assigns its own UUIDs on user creation via SSO,
+        we need to first get the user's email from EnGarde DB,
+        then lookup the user in Langflow by username (which is the email).
 
         Args:
-            user_id: User UUID
+            user_id: EnGarde User UUID
 
         Returns:
             User dict or None if not found
         """
+        # First, get user email from EnGarde database
+        from app.database.engarde_queries import EnGardeQueries
+        engarde_queries = EnGardeQueries()
+        user_data = await engarde_queries.get_user_subscription_data(user_id)
+
+        if not user_data or not user_data.get('email'):
+            logger.warning(f"User {user_id} not found in EnGarde database")
+            return None
+
+        user_email = user_data['email']
+        logger.info(f"Looking up Langflow user by email: {user_email} (EnGarde UUID: {user_id})")
+
+        # Now lookup user in Langflow by username (email)
         async with db.get_langflow_connection() as conn:
             row = await conn.fetchrow(
                 """
                 SELECT id, username, is_superuser, is_active, last_login_at
                 FROM "user"
-                WHERE id = $1
+                WHERE username = $1
                 """,
-                user_id
+                user_email
             )
 
             if row:
+                logger.info(f"Found Langflow user: {row['username']} (Langflow UUID: {row['id']})")
                 return dict(row)
+
+            logger.warning(f"User {user_email} not found in Langflow database")
             return None

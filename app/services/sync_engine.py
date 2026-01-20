@@ -79,9 +79,14 @@ class TemplateSyncEngine:
                     message=error_msg
                 )
 
+            # Extract Langflow UUID (different from EnGarde UUID)
+            langflow_user_id = langflow_user['id']
+            logger.info(f"Langflow user found: {langflow_user['username']} (Langflow UUID: {langflow_user_id})")
+
             # Step 1: Ensure user has "En Garde" folder
+            # Use Langflow UUID for all Langflow database operations
             engarde_folder_id = await self.queries.get_or_create_folder(
-                user_id=user_id,
+                user_id=langflow_user_id,
                 folder_name=self.USER_ENGARDE_FOLDER
             )
 
@@ -113,8 +118,9 @@ class TemplateSyncEngine:
             )
 
             # Step 4: Sync accessible templates
+            # Use Langflow UUID for Langflow database operations
             sync_results = await self._sync_templates_to_folder(
-                user_id=user_id,
+                user_id=langflow_user_id,
                 folder_id=engarde_folder_id,
                 templates=accessible_templates,
                 force_sync=force_sync
@@ -292,17 +298,37 @@ class TemplateSyncEngine:
         Get current sync status for a user.
 
         Args:
-            user_id: User UUID
+            user_id: EnGarde User UUID
             user_access: User's access control
 
         Returns:
             SyncStatusResponse with current status
         """
+        # Get Langflow user to retrieve Langflow UUID
+        langflow_user = await self.queries.get_user(user_id)
+        if not langflow_user:
+            # Return empty status if user not found in Langflow
+            return SyncStatusResponse(
+                user_id=user_id,
+                subscription_tier=user_access.subscription_tier,
+                enabled_walker_agents=user_access.enabled_walker_agents,
+                last_sync_at=None,
+                total_flows=0,
+                template_flows_count=0,
+                custom_flows_count=0,
+                accessible_templates=0,
+                pending_updates=0,
+                denied_templates=0,
+                upgrade_opportunities=[]
+            )
+
+        langflow_user_id = langflow_user['id']
+
         # Get all admin templates
         admin_templates = await self.queries.get_admin_templates()
 
-        # Get user's current flows
-        user_flows = await self.queries.get_user_flows(user_id)
+        # Get user's current flows using Langflow UUID
+        user_flows = await self.queries.get_user_flows(langflow_user_id)
 
         # Calculate accessible templates
         accessible_count = 0
