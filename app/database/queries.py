@@ -78,7 +78,10 @@ class LangflowQueries:
     @staticmethod
     async def get_admin_templates() -> List[Dict]:
         """
-        Get all admin template flows.
+        Get all admin template flows from the designated template-admin account.
+
+        Template flows are managed by superusers and system admins who all share
+        the template-admin@engarde.com account in Langflow.
 
         Returns:
             List of admin templates with metadata
@@ -93,7 +96,7 @@ class LangflowQueries:
                 FROM flow f
                 JOIN "user" u ON f.user_id = u.id
                 LEFT JOIN folder fol ON f.folder_id = fol.id
-                WHERE u.is_superuser = true
+                WHERE u.username = 'template-admin@engarde.com'
                 ORDER BY fol.name, f.name
                 """
             )
