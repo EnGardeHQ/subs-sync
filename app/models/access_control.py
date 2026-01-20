@@ -6,11 +6,25 @@ from enum import Enum
 
 
 class SubscriptionTier(str, Enum):
-    """Subscription tier levels"""
-    FREE = "free"
-    PRO = "pro"
-    ENTERPRISE = "enterprise"
-    AGENCY = "agency"
+    """
+    Subscription tier levels with walker agent access control.
+
+    Tier hierarchy (lowest to highest):
+    FREE/STARTER → PROFESSIONAL → BUSINESS → ENTERPRISE
+
+    Walker agent access by tier:
+    - STARTER: Capilytic SEO + Content only
+    - PROFESSIONAL: Sankore Paid Ads only
+    - BUSINESS: All 4 walker agents
+    - ENTERPRISE: All 4 walker agents + custom settings
+    """
+    FREE = "free"  # Legacy - maps to STARTER
+    STARTER = "starter"  # Capilytic SEO + Content
+    PRO = "pro"  # Legacy - maps to PROFESSIONAL
+    PROFESSIONAL = "professional"  # Sankore Paid Ads only
+    BUSINESS = "business"  # All 4 walker agents
+    ENTERPRISE = "enterprise"  # All 4 + custom settings
+    AGENCY = "agency"  # Legacy - maps to ENTERPRISE
 
 
 class WalkerAgentType(str, Enum):

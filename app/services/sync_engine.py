@@ -191,14 +191,23 @@ class TemplateSyncEngine:
             if not self.access_control.can_access_tier(user_access.subscription_tier, required_tier):
                 return {
                     'has_access': False,
-                    'reason': f"Requires {required_tier.value} tier or higher (current: {user_access.subscription_tier})"
+                    'reason': f"Requires {required_tier.value} tier or higher (current: {user_access.subscription_tier.value})"
                 }
 
-            # Check walker agent enablement
-            if walker_agent_type and walker_agent_type not in user_access.enabled_walker_agents:
+            # Check walker agent access (tier must allow walker agent type AND agent must be enabled)
+            if not self.access_control.has_walker_agent_access(
+                user_access.subscription_tier,
+                user_access.enabled_walker_agents,
+                walker_agent_type
+            ):
+                tier_allowed = self.access_control.get_tier_allowed_walker_agents(user_access.subscription_tier)
                 return {
                     'has_access': False,
-                    'reason': f"Walker agent '{walker_agent_type}' not enabled for user"
+                    'reason': (
+                        f"Walker agent '{walker_agent_type.value if walker_agent_type else 'unknown'}' "
+                        f"not accessible. Tier {user_access.subscription_tier.value} allows: "
+                        f"{[a.value for a in tier_allowed]}"
+                    )
                 }
 
             return {'has_access': True, 'reason': None}
