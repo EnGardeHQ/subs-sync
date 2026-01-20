@@ -213,26 +213,25 @@ class LangflowQueries:
         """
         async with db.get_langflow_connection() as conn:
             new_flow_id = str(uuid4())
-            now = datetime.now(timezone.utc)
 
             # Extract clean user description (remove template_metadata)
             clean_description = LangflowQueries._get_clean_description(template['description'])
 
+            # Use CURRENT_TIMESTAMP to let PostgreSQL handle timezone
             await conn.execute(
                 """
                 INSERT INTO flow (
                     id, user_id, name, description, data, folder_id,
                     updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
                 """,
                 new_flow_id,
                 user_id,
                 template['name'],
                 clean_description,
                 json.dumps(template['data']) if isinstance(template['data'], dict) else template['data'],
-                folder_id,
-                now
+                folder_id
             )
 
             logger.info(f"Copied template '{template['name']}' to user {user_id} (flow_id: {new_flow_id})")
